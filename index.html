@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Grid Creator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Photo Grid Creator</h1>
+        <div class="controls">
+            <div class="control-group">
+                <label for="cols">Columns</label>
+                <input type="number" id="cols" min="1" max="10" value="3">
+            </div>
+            <div class="control-group">
+                <label for="rows">Rows</label>
+                <input type="number" id="rows" min="1" max="10" value="3">
+            </div>
+            <div class="control-group">
+                <label for="border-size">Border <span id="border-size-value">10</span>px</label>
+                <input type="range" id="border-size" min="0" max="50" value="10">
+            </div>
+            <div class="control-group">
+                <label for="border-color">Color</label>
+                <input type="color" id="border-color" value="#ffffff">
+            </div>
+            <button id="download-btn" disabled>Download</button>
+        </div>
+    </header>
+
+    <main>
+        <div id="grid-container">
+            <div id="drop-zone">
+                <p>Drop images here or click to upload</p>
+                <input type="file" id="file-input" multiple accept="image/*">
+            </div>
+            <div id="grid" style="display:none;"></div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
