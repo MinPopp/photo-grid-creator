@@ -10,6 +10,8 @@
     const borderSizeValue = document.getElementById("border-size-value");
     const borderColorInput = document.getElementById("border-color");
     const downloadBtn = document.getElementById("download-btn");
+    const includeColorCheckbox = document.getElementById("include-color");
+    const downloadFormat = document.getElementById("download-format");
 
     // Fixed-size array: null = empty slot, otherwise a canvas with the cropped square image
     let images = [];
@@ -207,6 +209,14 @@
 
     // --- Download ---
 
+    function getContrastColor(hex) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.5 ? "#000000" : "#FFFFFF";
+    }
+
     function downloadGrid() {
         downloadBtn.disabled = true;
         downloadBtn.textContent = "Preparing…";
@@ -218,25 +228,56 @@
             const border = getBorderSize();
             const color = getBorderColor();
             const cellSize = MAX_SIZE;
+            const format = downloadFormat.value;
+            const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
+            const quality = format === "jpeg" ? 0.92 : undefined;
 
-            const width = cols * cellSize + (cols + 1) * border;
-            const height = rows * cellSize + (rows + 1) * border;
+            const gridWidth = cols * cellSize + (cols + 1) * border;
+            const gridHeight = rows * cellSize + (rows + 1) * border;
+
+            // Color header
+            const showColor = includeColorCheckbox.checked && currentColor;
+            const headerHeight = showColor ? 120 : 0;
 
             const canvas = document.createElement("canvas");
-            canvas.width = width;
-            canvas.height = height;
+            canvas.width = gridWidth;
+            canvas.height = gridHeight + headerHeight;
             const ctx = canvas.getContext("2d");
 
             // Background = border color
             ctx.fillStyle = color;
-            ctx.fillRect(0, 0, width, height);
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw color header
+            if (showColor) {
+                const swatchSize = 80;
+                const padding = 20;
+
+                // Swatch
+                ctx.fillStyle = currentColor.hex;
+                ctx.fillRect(padding, padding, swatchSize, swatchSize);
+                ctx.strokeStyle = "rgba(255,255,255,0.3)";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(padding, padding, swatchSize, swatchSize);
+
+                // Text
+                const textX = padding + swatchSize + 20;
+                const textColor = getContrastColor(color);
+                ctx.fillStyle = textColor;
+                ctx.font = "bold 48px -apple-system, BlinkMacSystemFont, sans-serif";
+                ctx.textBaseline = "top";
+                ctx.fillText(currentColor.name, textX, padding + 4);
+                ctx.font = "36px monospace";
+                ctx.fillStyle = textColor === "#FFFFFF" ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)";
+                ctx.fillText(currentColor.hex, textX, padding + 56);
+            }
 
             images.forEach((imgCanvas, i) => {
                 if (!imgCanvas) return;
                 const col = i % cols;
                 const row = Math.floor(i / cols);
                 const x = border + col * (cellSize + border);
-                const y = border + row * (cellSize + border);
+                const y = headerHeight + border + row * (cellSize + border);
                 ctx.drawImage(imgCanvas, 0, 0, imgCanvas.width, imgCanvas.height, x, y, cellSize, cellSize);
             });
 
@@ -244,13 +285,13 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = "photo-grid.png";
+                a.download = `photo-grid.${format}`;
                 a.click();
                 URL.revokeObjectURL(url);
 
                 downloadBtn.textContent = "Download";
                 downloadBtn.disabled = false;
-            }, "image/png");
+            }, mimeType, quality);
         }, 50);
     }
 
@@ -297,6 +338,8 @@
     downloadBtn.addEventListener("click", downloadGrid);
 
     // --- Color Challenge ---
+
+    let currentColor = null;
 
     const PALETTE_SMALL = [
         ["Red", "#E53935"],
@@ -358,6 +401,15 @@
     const colorSwatch = document.getElementById("color-swatch");
     const colorName = document.getElementById("color-name");
     const colorHex = document.getElementById("color-hex");
+    const shareColorBtn = document.getElementById("share-color-btn");
+
+    function showColor(name, hex) {
+        currentColor = { name, hex };
+        colorSwatch.style.background = hex;
+        colorName.textContent = name;
+        colorHex.textContent = hex;
+        colorResult.classList.remove("hidden");
+    }
 
     function rollColor() {
         const mode = paletteMode.value;
@@ -373,11 +425,31 @@
             hex = pick[1];
         }
 
-        colorSwatch.style.background = hex;
-        colorName.textContent = name;
-        colorHex.textContent = hex;
-        colorResult.classList.remove("hidden");
+        showColor(name, hex);
     }
 
     rollBtn.addEventListener("click", rollColor);
+
+    // Share link
+    shareColorBtn.addEventListener("click", () => {
+        if (!currentColor) return;
+        const url = new URL(window.location.href.split("?")[0]);
+        url.searchParams.set("color", currentColor.hex.slice(1));
+        if (currentColor.name !== "Random") {
+            url.searchParams.set("name", currentColor.name);
+        }
+        navigator.clipboard.writeText(url.toString()).then(() => {
+            shareColorBtn.textContent = "✓ Copied!";
+            setTimeout(() => { shareColorBtn.textContent = "🔗 Share"; }, 1500);
+        });
+    });
+
+    // Load color from URL on startup
+    const params = new URLSearchParams(window.location.search);
+    const urlColor = params.get("color");
+    if (urlColor && /^[0-9A-Fa-f]{6}$/.test(urlColor)) {
+        const hex = "#" + urlColor.toUpperCase();
+        const name = params.get("name") || "Random";
+        showColor(name, hex);
+    }
 })();

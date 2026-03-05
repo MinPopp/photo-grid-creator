@@ -26,6 +26,17 @@
                 <label for="border-color">Color</label>
                 <input type="color" id="border-color" value="#ffffff">
             </div>
+            <div class="control-group">
+                <label for="include-color">Include color</label>
+                <input type="checkbox" id="include-color">
+            </div>
+            <div class="control-group">
+                <label for="download-format">Format</label>
+                <select id="download-format">
+                    <option value="png">PNG</option>
+                    <option value="jpeg">JPEG</option>
+                </select>
+            </div>
             <button id="download-btn" disabled>Download</button>
         </div>
     </header>
@@ -47,6 +58,7 @@
                     <span id="color-name"></span>
                     <span id="color-hex"></span>
                 </div>
+                <button id="share-color-btn" title="Copy share link">🔗 Share</button>
             </div>
         </section>
 

@@ -57,6 +57,21 @@ header h1 {
     accent-color: #e94560;
 }
 
+.control-group input[type="checkbox"] {
+    accent-color: #e94560;
+    width: 1rem;
+    height: 1rem;
+}
+
+.control-group select {
+    padding: 0.3rem 0.4rem;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+}
+
 .control-group input[type="color"] {
     width: 2rem;
     height: 2rem;
@@ -175,6 +190,23 @@ main {
     font-size: 1rem;
     font-family: monospace;
     color: #aaa;
+}
+
+#share-color-btn {
+    margin-left: auto;
+    padding: 0.35rem 1rem;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+#share-color-btn:hover {
+    background: #0f3460;
 }
 
 #grid-container {
