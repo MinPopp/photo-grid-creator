@@ -295,4 +295,89 @@
     });
 
     downloadBtn.addEventListener("click", downloadGrid);
+
+    // --- Color Challenge ---
+
+    const PALETTE_SMALL = [
+        ["Red", "#E53935"],
+        ["Orange", "#FB8C00"],
+        ["Yellow", "#FDD835"],
+        ["Lime", "#7CB342"],
+        ["Green", "#43A047"],
+        ["Teal", "#00897B"],
+        ["Sky Blue", "#039BE5"],
+        ["Blue", "#1E88E5"],
+        ["Indigo", "#3949AB"],
+        ["Purple", "#8E24AA"],
+        ["Pink", "#D81B60"],
+        ["Brown", "#6D4C41"],
+    ];
+
+    const PALETTE_REGULAR = [
+        ["Scarlet", "#FF2400"],
+        ["Crimson", "#DC143C"],
+        ["Coral", "#FF6F61"],
+        ["Tomato", "#FF6347"],
+        ["Burnt Orange", "#CC5500"],
+        ["Tangerine", "#FF9966"],
+        ["Amber", "#FFBF00"],
+        ["Gold", "#FFD700"],
+        ["Lemon", "#FFF44F"],
+        ["Chartreuse", "#DFFF00"],
+        ["Lime", "#A4DE02"],
+        ["Mint", "#98FF98"],
+        ["Emerald", "#50C878"],
+        ["Forest Green", "#228B22"],
+        ["Sage", "#87AE73"],
+        ["Teal", "#008080"],
+        ["Cyan", "#00BCD4"],
+        ["Sky Blue", "#87CEEB"],
+        ["Cerulean", "#007BA7"],
+        ["Cobalt", "#0047AB"],
+        ["Navy", "#001F3F"],
+        ["Periwinkle", "#CCCCFF"],
+        ["Lavender", "#B57EDC"],
+        ["Violet", "#7F00FF"],
+        ["Plum", "#8E4585"],
+        ["Magenta", "#FF00FF"],
+        ["Rose", "#FF007F"],
+        ["Blush", "#DE5D83"],
+        ["Peach", "#FFCBA4"],
+        ["Rust", "#B7410E"],
+        ["Maroon", "#800000"],
+        ["Chocolate", "#7B3F00"],
+        ["Taupe", "#8B8589"],
+        ["Slate", "#708090"],
+        ["Ivory", "#FFFFF0"],
+        ["Mustard", "#FFDB58"],
+    ];
+
+    const rollBtn = document.getElementById("roll-btn");
+    const paletteMode = document.getElementById("palette-mode");
+    const colorResult = document.getElementById("color-result");
+    const colorSwatch = document.getElementById("color-swatch");
+    const colorName = document.getElementById("color-name");
+    const colorHex = document.getElementById("color-hex");
+
+    function rollColor() {
+        const mode = paletteMode.value;
+        let name, hex;
+
+        if (mode === "random") {
+            hex = "#" + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, "0").toUpperCase();
+            name = "Random";
+        } else {
+            const palette = mode === "small" ? PALETTE_SMALL : PALETTE_REGULAR;
+            const pick = palette[Math.floor(Math.random() * palette.length)];
+            name = pick[0];
+            hex = pick[1];
+        }
+
+        colorSwatch.style.background = hex;
+        colorName.textContent = name;
+        colorHex.textContent = hex;
+        colorResult.classList.remove("hidden");
+    }
+
+    rollBtn.addEventListener("click", rollColor);
 })();

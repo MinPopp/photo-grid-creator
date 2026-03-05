@@ -89,8 +89,92 @@ button#download-btn:not(:disabled):hover {
 
 main {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     padding: 2rem;
+    gap: 2rem;
+}
+
+/* --- Color Challenge --- */
+
+#color-challenge {
+    width: 100%;
+    max-width: 900px;
+    background: #16213e;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+}
+
+#color-challenge h2 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    color: #e0e0e0;
+}
+
+.challenge-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+#palette-mode {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-size: 0.9rem;
+}
+
+#roll-btn {
+    padding: 0.4rem 1.4rem;
+    border: none;
+    border-radius: 4px;
+    background: #e94560;
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+#roll-btn:hover {
+    opacity: 0.85;
+}
+
+.color-result {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.color-result.hidden {
+    display: none;
+}
+
+#color-swatch {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+}
+
+#color-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+#color-name {
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+#color-hex {
+    font-size: 1rem;
+    font-family: monospace;
+    color: #aaa;
 }
 
 #grid-container {

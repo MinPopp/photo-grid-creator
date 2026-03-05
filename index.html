@@ -31,6 +31,25 @@
     </header>
 
     <main>
+        <section id="color-challenge">
+            <h2>🎲 Color Challenge</h2>
+            <div class="challenge-controls">
+                <select id="palette-mode">
+                    <option value="small">Small palette</option>
+                    <option value="regular" selected>Regular palette</option>
+                    <option value="random">Fully random</option>
+                </select>
+                <button id="roll-btn">Roll</button>
+            </div>
+            <div id="color-result" class="color-result hidden">
+                <div id="color-swatch"></div>
+                <div id="color-info">
+                    <span id="color-name"></span>
+                    <span id="color-hex"></span>
+                </div>
+            </div>
+        </section>
+
         <div id="grid-container">
             <div id="drop-zone">
                 <p>Drop images here or click to upload</p>
