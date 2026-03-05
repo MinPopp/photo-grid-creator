@@ -189,6 +189,11 @@ main {
     display: none;
 }
 
-#grid .sortable-ghost {
+#grid .grid-cell.dragging {
     opacity: 0.4;
+}
+
+#grid .grid-cell.drag-target {
+    outline: 3px solid #e94560;
+    outline-offset: -3px;
 }

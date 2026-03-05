@@ -11,9 +11,9 @@
     const borderColorInput = document.getElementById("border-color");
     const downloadBtn = document.getElementById("download-btn");
 
-    // Each entry holds a canvas with the cropped square image
+    // Fixed-size array: null = empty slot, otherwise a canvas with the cropped square image
     let images = [];
-    let sortable = null;
+    let dragSourceIndex = null;
 
     // --- Image processing ---
 
@@ -48,13 +48,20 @@
         });
     }
 
-    async function addFiles(files) {
+    function ensureArraySize() {
         const totalSlots = getCols() * getRows();
+        while (images.length < totalSlots) images.push(null);
+        if (images.length > totalSlots) images.length = totalSlots;
+    }
+
+    async function addFiles(files) {
+        ensureArraySize();
         for (const file of files) {
-            if (images.length >= totalSlots) break;
+            const emptyIndex = images.indexOf(null);
+            if (emptyIndex === -1) break;
             try {
                 const canvas = await loadImageFile(file);
-                images.push(canvas);
+                images[emptyIndex] = canvas;
             } catch (_) {
                 // skip non-images silently
             }
@@ -89,7 +96,11 @@
         const border = getBorderSize();
         const color = getBorderColor();
 
-        if (images.length === 0) {
+        ensureArraySize();
+
+        const hasAnyImage = images.some((img) => img !== null);
+
+        if (!hasAnyImage) {
             grid.style.display = "none";
             dropZone.style.display = "";
             downloadBtn.disabled = true;
@@ -103,110 +114,144 @@
         grid.style.padding = `${border}px`;
         grid.style.background = color;
 
-        // Trim images array if grid shrank
-        if (images.length > totalSlots) {
-            images.length = totalSlots;
-        }
-
         grid.innerHTML = "";
 
-        images.forEach((canvas, i) => {
-            const cell = document.createElement("div");
-            cell.className = "grid-cell";
-            cell.dataset.index = i;
+        for (let i = 0; i < totalSlots; i++) {
+            const canvas = images[i];
 
-            const img = document.createElement("img");
-            img.src = canvas.toDataURL("image/jpeg", 0.92);
-            cell.appendChild(img);
+            if (canvas) {
+                const cell = document.createElement("div");
+                cell.className = "grid-cell";
+                cell.dataset.index = i;
+                cell.draggable = true;
 
-            const removeBtn = document.createElement("button");
-            removeBtn.className = "remove-btn";
-            removeBtn.textContent = "✕";
-            removeBtn.addEventListener("click", (e) => {
-                e.stopPropagation();
-                images.splice(i, 1);
-                renderGrid();
-            });
-            cell.appendChild(removeBtn);
+                cell.addEventListener("dragstart", (e) => {
+                    dragSourceIndex = i;
+                    cell.classList.add("dragging");
+                    e.dataTransfer.effectAllowed = "move";
+                });
+                cell.addEventListener("dragend", () => {
+                    cell.classList.remove("dragging");
+                    dragSourceIndex = null;
+                    grid.querySelectorAll(".drag-target").forEach((el) => el.classList.remove("drag-target"));
+                });
+                cell.addEventListener("dragover", (e) => {
+                    if (dragSourceIndex === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    cell.classList.add("drag-target");
+                });
+                cell.addEventListener("dragleave", () => cell.classList.remove("drag-target"));
+                cell.addEventListener("drop", (e) => {
+                    e.preventDefault();
+                    cell.classList.remove("drag-target");
+                    if (dragSourceIndex === null || dragSourceIndex === i) return;
+                    const tmp = images[dragSourceIndex];
+                    images[dragSourceIndex] = images[i];
+                    images[i] = tmp;
+                    dragSourceIndex = null;
+                    renderGrid();
+                });
 
-            grid.appendChild(cell);
-        });
+                const img = document.createElement("img");
+                img.src = canvas.toDataURL("image/jpeg", 0.92);
+                cell.appendChild(img);
 
-        // Fill remaining slots with empty placeholders
-        for (let i = images.length; i < totalSlots; i++) {
-            const cell = document.createElement("div");
-            cell.className = "grid-cell empty-cell";
+                const removeBtn = document.createElement("button");
+                removeBtn.className = "remove-btn";
+                removeBtn.textContent = "✕";
+                removeBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    images[i] = null;
+                    renderGrid();
+                });
+                cell.appendChild(removeBtn);
 
-            const input = document.createElement("input");
-            input.type = "file";
-            input.multiple = true;
-            input.accept = "image/*";
-            input.addEventListener("change", (e) => addFiles(e.target.files));
-            cell.appendChild(input);
+                grid.appendChild(cell);
+            } else {
+                const cell = document.createElement("div");
+                cell.className = "grid-cell empty-cell";
+                cell.dataset.index = i;
 
-            cell.addEventListener("click", () => input.click());
-            grid.appendChild(cell);
+                cell.addEventListener("dragover", (e) => {
+                    if (dragSourceIndex === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    cell.classList.add("drag-target");
+                });
+                cell.addEventListener("dragleave", () => cell.classList.remove("drag-target"));
+                cell.addEventListener("drop", (e) => {
+                    e.preventDefault();
+                    cell.classList.remove("drag-target");
+                    if (dragSourceIndex === null) return;
+                    images[i] = images[dragSourceIndex];
+                    images[dragSourceIndex] = null;
+                    dragSourceIndex = null;
+                    renderGrid();
+                });
+
+                const input = document.createElement("input");
+                input.type = "file";
+                input.multiple = true;
+                input.accept = "image/*";
+                input.addEventListener("change", (e) => addFiles(e.target.files));
+                cell.appendChild(input);
+
+                cell.addEventListener("click", () => input.click());
+                grid.appendChild(cell);
+            }
         }
 
-        downloadBtn.disabled = images.length === 0;
-        initSortable();
-    }
-
-    function initSortable() {
-        if (sortable) sortable.destroy();
-        sortable = new Sortable(grid, {
-            animation: 150,
-            ghostClass: "sortable-ghost",
-            filter: ".empty-cell",
-            onEnd(evt) {
-                const { oldIndex, newIndex } = evt;
-                if (oldIndex === newIndex) return;
-                // Only reorder within the images array (ignore empty cell indices)
-                if (oldIndex >= images.length || newIndex >= images.length) return;
-                const [moved] = images.splice(oldIndex, 1);
-                images.splice(newIndex, 0, moved);
-                renderGrid();
-            },
-        });
+        downloadBtn.disabled = !hasAnyImage;
     }
 
     // --- Download ---
 
     function downloadGrid() {
-        const cols = getCols();
-        const rows = getRows();
-        const border = getBorderSize();
-        const color = getBorderColor();
-        const cellSize = MAX_SIZE;
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = "Preparing…";
 
-        const width = cols * cellSize + (cols + 1) * border;
-        const height = rows * cellSize + (rows + 1) * border;
+        // Defer heavy work so the button text update renders first
+        setTimeout(() => {
+            const cols = getCols();
+            const rows = getRows();
+            const border = getBorderSize();
+            const color = getBorderColor();
+            const cellSize = MAX_SIZE;
 
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
+            const width = cols * cellSize + (cols + 1) * border;
+            const height = rows * cellSize + (rows + 1) * border;
 
-        // Background = border color
-        ctx.fillStyle = color;
-        ctx.fillRect(0, 0, width, height);
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
 
-        images.forEach((imgCanvas, i) => {
-            const col = i % cols;
-            const row = Math.floor(i / cols);
-            const x = border + col * (cellSize + border);
-            const y = border + row * (cellSize + border);
-            ctx.drawImage(imgCanvas, 0, 0, imgCanvas.width, imgCanvas.height, x, y, cellSize, cellSize);
-        });
+            // Background = border color
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, width, height);
 
-        canvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "photo-grid.png";
-            a.click();
-            URL.revokeObjectURL(url);
-        }, "image/png");
+            images.forEach((imgCanvas, i) => {
+                if (!imgCanvas) return;
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                const x = border + col * (cellSize + border);
+                const y = border + row * (cellSize + border);
+                ctx.drawImage(imgCanvas, 0, 0, imgCanvas.width, imgCanvas.height, x, y, cellSize, cellSize);
+            });
+
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "photo-grid.png";
+                a.click();
+                URL.revokeObjectURL(url);
+
+                downloadBtn.textContent = "Download";
+                downloadBtn.disabled = false;
+            }, "image/png");
+        }, 50);
     }
 
     // --- Events ---
