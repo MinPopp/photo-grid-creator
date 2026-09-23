@@ -63,6 +63,10 @@
         </section>
 
         <div id="grid-container">
+            <div id="grid-toolbar" hidden>
+                <p id="reorder-status" aria-live="polite"></p>
+                <button id="reorder-btn" type="button" aria-pressed="false">Reorder photos</button>
+            </div>
             <div id="drop-zone">
                 <p>Drop images here or click to upload</p>
                 <input type="file" id="file-input" multiple accept="image/*">

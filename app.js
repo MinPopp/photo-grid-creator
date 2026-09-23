@@ -12,6 +12,9 @@
     const downloadBtn = document.getElementById("download-btn");
     const includeColorCheckbox = document.getElementById("include-color");
     const downloadFormat = document.getElementById("download-format");
+    const gridToolbar = document.getElementById("grid-toolbar");
+    const reorderBtn = document.getElementById("reorder-btn");
+    const reorderStatus = document.getElementById("reorder-status");
     const cropEditor = document.getElementById("crop-editor");
     const cropPreview = document.getElementById("crop-preview");
     const cropZoom = document.getElementById("crop-zoom");
@@ -25,6 +28,9 @@
     let editingIndex = null;
     let pendingCrop = null;
     let cropDrag = null;
+    let reorderMode = false;
+    let reorderSourceIndex = null;
+    let reorderMessage = "";
 
     // --- Image processing ---
 
@@ -108,6 +114,69 @@
         return borderColorInput.value;
     }
 
+    function updateReorderControls(hasAnyImage) {
+        gridToolbar.hidden = !hasAnyImage;
+        reorderBtn.textContent = reorderMode ? "Done" : "Reorder photos";
+        reorderBtn.setAttribute("aria-pressed", reorderMode.toString());
+        reorderStatus.textContent = reorderMode ? reorderMessage : "";
+    }
+
+    function setReorderMode(enabled) {
+        reorderMode = enabled;
+        reorderSourceIndex = null;
+        reorderMessage = enabled ? "Tap a photo, then tap its destination." : "";
+        renderGrid();
+    }
+
+    function chooseReorderCell(index) {
+        if (reorderSourceIndex === null) {
+            if (!images[index]) {
+                reorderMessage = "Choose a photo first.";
+                updateReorderControls(true);
+                return;
+            }
+            reorderSourceIndex = index;
+            reorderMessage = `Photo ${index + 1} selected. Tap its destination.`;
+            renderGrid();
+            return;
+        }
+
+        if (reorderSourceIndex === index) {
+            reorderSourceIndex = null;
+            reorderMessage = "Selection cleared. Tap a photo to move.";
+            renderGrid();
+            return;
+        }
+
+        const sourceIndex = reorderSourceIndex;
+        const targetWasEmpty = !images[index];
+        const temporary = images[sourceIndex];
+        images[sourceIndex] = images[index];
+        images[index] = temporary;
+        reorderSourceIndex = null;
+        reorderMessage = targetWasEmpty
+            ? `Photo moved to position ${index + 1}.`
+            : `Photos ${sourceIndex + 1} and ${index + 1} swapped.`;
+        renderGrid();
+    }
+
+    function configureReorderCell(cell, index, hasImage) {
+        if (!reorderMode) return;
+        cell.tabIndex = 0;
+        cell.setAttribute("role", "button");
+        cell.setAttribute("aria-label", hasImage ? `Photo ${index + 1}` : `Empty position ${index + 1}`);
+        if (reorderSourceIndex === index) {
+            cell.classList.add("reorder-selected");
+            cell.setAttribute("aria-pressed", "true");
+        }
+        cell.addEventListener("click", () => chooseReorderCell(index));
+        cell.addEventListener("keydown", (e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            chooseReorderCell(index);
+        });
+    }
+
     // --- Rendering ---
 
     function renderGrid() {
@@ -119,9 +188,18 @@
 
         ensureArraySize();
 
+        if (reorderSourceIndex !== null && !images[reorderSourceIndex]) {
+            reorderSourceIndex = null;
+            reorderMessage = "The grid changed. Tap a photo to move.";
+        }
+
         const hasAnyImage = images.some((img) => img !== null);
 
         if (!hasAnyImage) {
+            reorderMode = false;
+            reorderSourceIndex = null;
+            reorderMessage = "";
+            updateReorderControls(false);
             grid.style.display = "none";
             dropZone.style.display = "";
             downloadBtn.disabled = true;
@@ -134,6 +212,8 @@
         grid.style.gap = `${border}px`;
         grid.style.padding = `${border}px`;
         grid.style.background = color;
+        grid.classList.toggle("reorder-mode", reorderMode);
+        updateReorderControls(true);
 
         grid.innerHTML = "";
 
@@ -144,7 +224,7 @@
                 const cell = document.createElement("div");
                 cell.className = "grid-cell";
                 cell.dataset.index = i;
-                cell.draggable = true;
+                cell.draggable = !reorderMode;
 
                 cell.addEventListener("dragstart", (e) => {
                     dragSourceIndex = i;
@@ -201,6 +281,7 @@
                 });
                 cell.appendChild(removeBtn);
 
+                configureReorderCell(cell, i, true);
                 grid.appendChild(cell);
             } else {
                 const cell = document.createElement("div");
@@ -231,7 +312,10 @@
                 input.addEventListener("change", (e) => addFiles(e.target.files));
                 cell.appendChild(input);
 
-                cell.addEventListener("click", () => input.click());
+                cell.addEventListener("click", () => {
+                    if (!reorderMode) input.click();
+                });
+                configureReorderCell(cell, i, false);
                 grid.appendChild(cell);
             }
         }
@@ -424,7 +508,12 @@
         if (e.target === cropEditor) closeCropEditor();
     });
     document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && !cropEditor.classList.contains("hidden")) closeCropEditor();
+        if (e.key !== "Escape") return;
+        if (!cropEditor.classList.contains("hidden")) {
+            closeCropEditor();
+        } else if (reorderMode) {
+            setReorderMode(false);
+        }
     });
 
     // --- Events ---
@@ -467,6 +556,7 @@
         grid.style.background = getBorderColor();
     });
 
+    reorderBtn.addEventListener("click", () => setReorderMode(!reorderMode));
     downloadBtn.addEventListener("click", downloadGrid);
 
     // --- Color Challenge ---

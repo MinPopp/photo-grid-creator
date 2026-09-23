@@ -218,6 +218,42 @@ main {
     max-width: 900px;
 }
 
+#grid-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+    min-height: 2rem;
+    margin-bottom: 0.75rem;
+}
+
+#grid-toolbar[hidden] {
+    display: none;
+}
+
+#reorder-status {
+    flex: 1;
+    color: #aaa;
+    font-size: 0.85rem;
+}
+
+#reorder-btn {
+    padding: 0.4rem 0.85rem;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    background: #16213e;
+    color: #e0e0e0;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+#reorder-btn[aria-pressed="true"] {
+    border-color: #e94560;
+    background: #e94560;
+    color: white;
+}
+
 #drop-zone {
     border: 3px dashed #0f3460;
     border-radius: 12px;
@@ -332,6 +368,42 @@ main {
     outline-offset: -3px;
 }
 
+#grid.reorder-mode .grid-cell {
+    cursor: pointer;
+    outline: 2px dashed rgba(233, 69, 96, 0.65);
+    outline-offset: -2px;
+}
+
+#grid.reorder-mode .grid-cell:focus-visible {
+    outline: 4px solid #e94560;
+    outline-offset: -4px;
+}
+
+#grid.reorder-mode .edit-btn,
+#grid.reorder-mode .remove-btn {
+    display: none;
+}
+
+#grid.reorder-mode .reorder-selected {
+    outline: 5px solid #e94560;
+    outline-offset: -5px;
+}
+
+#grid.reorder-mode .reorder-selected::before {
+    content: "Selected";
+    position: absolute;
+    z-index: 1;
+    top: 0.5rem;
+    left: 50%;
+    padding: 0.3rem 0.65rem;
+    border-radius: 1rem;
+    transform: translateX(-50%);
+    background: #e94560;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
 /* --- Crop editor --- */
 
 .crop-editor {
@@ -435,6 +507,10 @@ main {
 
     .controls {
         gap: 1rem;
+    }
+
+    #grid-toolbar {
+        align-items: flex-start;
     }
 
     .crop-panel {
