@@ -12,23 +12,43 @@
     const downloadBtn = document.getElementById("download-btn");
     const includeColorCheckbox = document.getElementById("include-color");
     const downloadFormat = document.getElementById("download-format");
+    const cropEditor = document.getElementById("crop-editor");
+    const cropPreview = document.getElementById("crop-preview");
+    const cropZoom = document.getElementById("crop-zoom");
+    const cropResetBtn = document.getElementById("crop-reset-btn");
+    const cropCancelBtn = document.getElementById("crop-cancel-btn");
+    const cropApplyBtn = document.getElementById("crop-apply-btn");
 
-    // Fixed-size array: null = empty slot, otherwise a canvas with the cropped square image
+    // Fixed-size array: null = empty slot, otherwise an original image and crop settings
     let images = [];
     let dragSourceIndex = null;
+    let editingIndex = null;
+    let pendingCrop = null;
+    let cropDrag = null;
 
     // --- Image processing ---
 
-    function cropToSquare(img) {
+    function getCropRect(item) {
+        const img = item.source;
+        const size = Math.min(img.naturalWidth, img.naturalHeight) / item.zoom;
+        const maxX = img.naturalWidth - size;
+        const maxY = img.naturalHeight - size;
+        const sx = Math.max(0, Math.min(maxX, item.focusX * img.naturalWidth - size / 2));
+        const sy = Math.max(0, Math.min(maxY, item.focusY * img.naturalHeight - size / 2));
+        return { sx, sy, size };
+    }
+
+    function drawCroppedImage(ctx, item, x, y, size) {
+        const crop = getCropRect(item);
+        ctx.drawImage(item.source, crop.sx, crop.sy, crop.size, crop.size, x, y, size, size);
+    }
+
+    function createPreview(item) {
         const canvas = document.createElement("canvas");
-        const size = Math.min(img.naturalWidth, img.naturalHeight);
-        const targetSize = Math.min(size, MAX_SIZE);
-        canvas.width = targetSize;
-        canvas.height = targetSize;
-        const ctx = canvas.getContext("2d");
-        const sx = (img.naturalWidth - size) / 2;
-        const sy = (img.naturalHeight - size) / 2;
-        ctx.drawImage(img, sx, sy, size, size, 0, 0, targetSize, targetSize);
+        const size = Math.min(600, MAX_SIZE, item.source.naturalWidth, item.source.naturalHeight);
+        canvas.width = size;
+        canvas.height = size;
+        drawCroppedImage(canvas.getContext("2d"), item, 0, 0, size);
         return canvas;
     }
 
@@ -38,9 +58,8 @@
             const url = URL.createObjectURL(file);
             const img = new Image();
             img.onload = () => {
-                const canvas = cropToSquare(img);
                 URL.revokeObjectURL(url);
-                resolve(canvas);
+                resolve({ source: img, zoom: 1, focusX: 0.5, focusY: 0.5 });
             };
             img.onerror = () => {
                 URL.revokeObjectURL(url);
@@ -62,8 +81,8 @@
             const emptyIndex = images.indexOf(null);
             if (emptyIndex === -1) break;
             try {
-                const canvas = await loadImageFile(file);
-                images[emptyIndex] = canvas;
+                const image = await loadImageFile(file);
+                images[emptyIndex] = image;
             } catch (_) {
                 // skip non-images silently
             }
@@ -119,9 +138,9 @@
         grid.innerHTML = "";
 
         for (let i = 0; i < totalSlots; i++) {
-            const canvas = images[i];
+            const image = images[i];
 
-            if (canvas) {
+            if (image) {
                 const cell = document.createElement("div");
                 cell.className = "grid-cell";
                 cell.dataset.index = i;
@@ -156,12 +175,25 @@
                 });
 
                 const img = document.createElement("img");
-                img.src = canvas.toDataURL("image/jpeg", 0.92);
+                img.src = createPreview(image).toDataURL("image/jpeg", 0.92);
                 cell.appendChild(img);
+
+                const editBtn = document.createElement("button");
+                editBtn.className = "edit-btn";
+                editBtn.type = "button";
+                editBtn.textContent = "Adjust";
+                editBtn.setAttribute("aria-label", `Adjust photo ${i + 1}`);
+                editBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    openCropEditor(i);
+                });
+                cell.appendChild(editBtn);
 
                 const removeBtn = document.createElement("button");
                 removeBtn.className = "remove-btn";
+                removeBtn.type = "button";
                 removeBtn.textContent = "✕";
+                removeBtn.setAttribute("aria-label", `Remove photo ${i + 1}`);
                 removeBtn.addEventListener("click", (e) => {
                     e.stopPropagation();
                     images[i] = null;
@@ -217,6 +249,12 @@
         return luminance > 0.5 ? "#000000" : "#FFFFFF";
     }
 
+    function getExportBorder(cellSize) {
+        const previewCell = grid.querySelector(".grid-cell");
+        const previewCellSize = previewCell ? previewCell.getBoundingClientRect().width : cellSize;
+        return Math.round(getBorderSize() * cellSize / previewCellSize);
+    }
+
     function downloadGrid() {
         downloadBtn.disabled = true;
         downloadBtn.textContent = "Preparing…";
@@ -225,9 +263,11 @@
         setTimeout(() => {
             const cols = getCols();
             const rows = getRows();
-            const border = getBorderSize();
             const color = getBorderColor();
             const cellSize = MAX_SIZE;
+            // CSS pixels stay fixed while preview cells shrink to fit the page. Scale the
+            // exported border with the cells so both versions have the same proportions.
+            const border = getExportBorder(cellSize);
             const format = downloadFormat.value;
             const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
             const quality = format === "jpeg" ? 0.92 : undefined;
@@ -272,13 +312,13 @@
                 ctx.fillText(currentColor.hex, textX, padding + 56);
             }
 
-            images.forEach((imgCanvas, i) => {
-                if (!imgCanvas) return;
+            images.forEach((image, i) => {
+                if (!image) return;
                 const col = i % cols;
                 const row = Math.floor(i / cols);
                 const x = border + col * (cellSize + border);
                 const y = headerHeight + border + row * (cellSize + border);
-                ctx.drawImage(imgCanvas, 0, 0, imgCanvas.width, imgCanvas.height, x, y, cellSize, cellSize);
+                drawCroppedImage(ctx, image, x, y, cellSize);
             });
 
             canvas.toBlob((blob) => {
@@ -294,6 +334,98 @@
             }, mimeType, quality);
         }, 50);
     }
+
+    // --- Crop editor ---
+
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function drawCropPreview() {
+        if (editingIndex === null || !pendingCrop) return;
+        const ctx = cropPreview.getContext("2d");
+        ctx.clearRect(0, 0, cropPreview.width, cropPreview.height);
+        drawCroppedImage(ctx, { ...images[editingIndex], ...pendingCrop }, 0, 0, cropPreview.width);
+    }
+
+    function openCropEditor(index) {
+        const image = images[index];
+        if (!image) return;
+        editingIndex = index;
+        pendingCrop = { zoom: image.zoom, focusX: image.focusX, focusY: image.focusY };
+        cropZoom.value = pendingCrop.zoom;
+        cropEditor.classList.remove("hidden");
+        document.body.classList.add("modal-open");
+        drawCropPreview();
+        cropZoom.focus();
+    }
+
+    function closeCropEditor() {
+        cropEditor.classList.add("hidden");
+        document.body.classList.remove("modal-open");
+        editingIndex = null;
+        pendingCrop = null;
+        cropDrag = null;
+    }
+
+    function moveCrop(clientX, clientY) {
+        if (!cropDrag || editingIndex === null || !pendingCrop) return;
+        const image = images[editingIndex].source;
+        const rect = cropPreview.getBoundingClientRect();
+        const cropSize = Math.min(image.naturalWidth, image.naturalHeight) / pendingCrop.zoom;
+        pendingCrop.focusX = clamp(
+            cropDrag.focusX - (clientX - cropDrag.x) * cropSize / (rect.width * image.naturalWidth),
+            0,
+            1
+        );
+        pendingCrop.focusY = clamp(
+            cropDrag.focusY - (clientY - cropDrag.y) * cropSize / (rect.height * image.naturalHeight),
+            0,
+            1
+        );
+        drawCropPreview();
+    }
+
+    cropPreview.addEventListener("pointerdown", (e) => {
+        if (!pendingCrop) return;
+        cropDrag = { x: e.clientX, y: e.clientY, focusX: pendingCrop.focusX, focusY: pendingCrop.focusY };
+        cropPreview.setPointerCapture(e.pointerId);
+        cropPreview.classList.add("dragging");
+    });
+    cropPreview.addEventListener("pointermove", (e) => moveCrop(e.clientX, e.clientY));
+    cropPreview.addEventListener("pointerup", (e) => {
+        cropPreview.releasePointerCapture(e.pointerId);
+        cropPreview.classList.remove("dragging");
+        cropDrag = null;
+    });
+    cropPreview.addEventListener("pointercancel", () => {
+        cropPreview.classList.remove("dragging");
+        cropDrag = null;
+    });
+    cropZoom.addEventListener("input", () => {
+        if (!pendingCrop) return;
+        pendingCrop.zoom = parseFloat(cropZoom.value);
+        drawCropPreview();
+    });
+    cropResetBtn.addEventListener("click", () => {
+        if (!pendingCrop) return;
+        pendingCrop = { zoom: 1, focusX: 0.5, focusY: 0.5 };
+        cropZoom.value = 1;
+        drawCropPreview();
+    });
+    cropCancelBtn.addEventListener("click", closeCropEditor);
+    cropApplyBtn.addEventListener("click", () => {
+        if (editingIndex === null || !pendingCrop) return;
+        Object.assign(images[editingIndex], pendingCrop);
+        closeCropEditor();
+        renderGrid();
+    });
+    cropEditor.addEventListener("click", (e) => {
+        if (e.target === cropEditor) closeCropEditor();
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !cropEditor.classList.contains("hidden")) closeCropEditor();
+    });
 
     // --- Events ---
 

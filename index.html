@@ -71,6 +71,24 @@
         </div>
     </main>
 
+    <div id="crop-editor" class="crop-editor hidden" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+        <div class="crop-panel">
+            <h2 id="crop-title">Adjust photo</h2>
+            <canvas id="crop-preview" width="600" height="600"></canvas>
+            <p class="crop-hint">Drag the photo to choose what appears in the square.</p>
+            <label class="zoom-control" for="crop-zoom">
+                <span>Zoom</span>
+                <input type="range" id="crop-zoom" min="1" max="4" step="0.01" value="1">
+            </label>
+            <div class="crop-actions">
+                <button id="crop-reset-btn" type="button" class="secondary-btn">Reset</button>
+                <span class="crop-action-spacer"></span>
+                <button id="crop-cancel-btn" type="button" class="secondary-btn">Cancel</button>
+                <button id="crop-apply-btn" type="button">Apply</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
